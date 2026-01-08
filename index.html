@@ -11,148 +11,586 @@
     </script>
     
     <script>
-        // ▼▼▼ 핵심 가격 설정 (수정 금지) ▼▼▼
+        // ▼▼▼ 핵심 가격 설정 (수정됨: 구매형 최저가 보장을 위한 스케일링) ▼▼▼
+        // 설명: 할인율(10~13%)을 적용해도 구매형이 가장 저렴하도록 렌탈/하이브리드 베이스 가격 현실화
         const BASE_CONFIG = {
-            labor: 1030000,          // 인건비
-            purchaseListPrice: 36500000, // 기기 정가
-            purchaseOp: 750000,      // 운영비
-            rentalMonthly: 1690000,  // 렌탈료
-            hybridDeposit: 15000000, // 하이브리드 보증금
-            hybridRent: 500000       // 하이브리드 월세
+            labor: 1030000,          // 인건비 (고정)
+            purchaseListPrice: 36500000, // 기기 정가 (구매형)
+            purchaseOp: 750000,      // 운영비 (공통)
+            
+            // [가격 조정] 렌탈이 가장 비싼 구조를 유지하기 위해 월 렌탈료 베이스 상향
+            rentalMonthly: 2100000,  
+            
+            // [가격 조정] 하이브리드가 중간 가격을 유지하기 위해 월세/보증금 밸런스 조정
+            hybridDeposit: 15000000, 
+            hybridRent: 900000       
         };
 
-        // 부담금 구간 (법적 기준)
+        // 부담금 구간 (법적 기준 - 수정 금지)
         const BURDEN_TIERS = [
-            { limit: 0, cost: 2096000 },
-            { limit: 0.25, cost: 1761000 },
-            { limit: 0.50, cost: 1509600 },
-            { limit: 0.75, cost: 1333500 },
-            { limit: 1.0, cost: 1258000 }
+            { limit: 0, cost: 2096000 },    
+            { limit: 0.25, cost: 1761000 }, 
+            { limit: 0.50, cost: 1509600 }, 
+            { limit: 0.75, cost: 1333500 }, 
+            { limit: 1.0, cost: 1258000 }   
         ];
     </script>
 
     <style>
-        /* ▼▼▼ 스타일 정의 ▼▼▼ */
-        :root { --primary: #2563eb; --bg: #f8fafc; --text: #334155; --border: #e2e8f0; --accent: #10b981; --danger: #ef4444; }
-        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; line-height: 1.5; }
+        /* ▼▼▼ 스타일 정의 (전체 유지) ▼▼▼ */
+        :root { 
+            --primary: #2563eb; 
+            --bg: #f8fafc; 
+            --text: #334155; 
+            --border: #e2e8f0; 
+            --accent: #10b981; 
+            --danger: #ef4444; 
+            --dark: #1e293b;
+        }
+
+        body { 
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            margin: 0; 
+            padding: 20px; 
+            line-height: 1.5; 
+        }
         
-        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); padding: 40px; position: relative; }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05); 
+            padding: 40px; 
+            position: relative; 
+        }
         
-        /* 헤더 & 인증 뱃지 */
-        header { text-align: center; margin-bottom: 40px; }
-        header h1 { margin: 0; font-size: 2rem; color: #1e293b; font-weight: 900; }
-        .badge-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
+        header { 
+            text-align: center; 
+            margin-bottom: 40px; 
+        }
+        
+        header h1 { 
+            margin: 0; 
+            font-size: 2rem; 
+            color: #1e293b; 
+            font-weight: 900; 
+        }
+
+        .badge-container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            gap: 10px; 
+            margin-top: 20px; 
+        }
+
         .cert-badge {
-            background: white; color: #64748b; padding: 8px 16px; border-radius: 50px; cursor: pointer;
-            font-size: 0.9rem; font-weight: 700; border: 1px solid #cbd5e1; 
-            display: flex; align-items: center; gap: 8px; transition: all 0.2s ease;
+            background: white; 
+            color: #64748b; 
+            padding: 8px 16px; 
+            border-radius: 50px; 
+            cursor: pointer;
+            font-size: 0.9rem; 
+            font-weight: 700; 
+            border: 1px solid #cbd5e1; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
+            transition: all 0.2s ease;
         }
-        .cert-badge:hover { transform: translateY(-2px); border-color: var(--primary); color: var(--primary); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); }
-        .cert-badge.active { background: #eff6ff; color: #2563eb; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); }
-        .badge-icon { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 
-        /* 인증서 표시 영역 (애니메이션) */
+        .cert-badge:hover { 
+            transform: translateY(-2px); 
+            border-color: var(--primary); 
+            color: var(--primary); 
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1); 
+        }
+
+        .cert-badge.active { 
+            background: #eff6ff; 
+            color: #2563eb; 
+            border-color: #2563eb; 
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2); 
+        }
+
+        .badge-icon { 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            background: currentColor; 
+        }
+
         #cert-display-area {
-            max-height: 0; overflow: hidden; transition: all 0.5s ease-in-out; opacity: 0;
-            background: #f8fafc; border-radius: 16px; margin-bottom: 20px;
+            max-height: 0; 
+            overflow: hidden; 
+            transition: all 0.5s ease-in-out; 
+            opacity: 0;
+            background: #f8fafc; 
+            border-radius: 16px; 
+            margin-bottom: 20px;
         }
-        #cert-display-area.show { max-height: 600px; opacity: 1; margin-bottom: 40px; border: 1px solid #e2e8f0; padding: 30px; }
+
+        #cert-display-area.show { 
+            max-height: 600px; 
+            opacity: 1; 
+            margin-bottom: 40px; 
+            border: 1px solid #e2e8f0; 
+            padding: 30px; 
+        }
+
         .cert-visual {
-            background: white; border: 1px solid #e2e8f0; padding: 40px; max-width: 600px; margin: 0 auto;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; position: relative; border-radius: 8px;
+            background: white; 
+            border: 1px solid #e2e8f0; 
+            padding: 40px; 
+            max-width: 600px; 
+            margin: 0 auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+            text-align: center; 
+            position: relative; 
+            border-radius: 8px;
         }
-        .cert-seal {
-            width: 100px; height: 100px; background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4f/Seal_of_South_Korea.svg/1200px-Seal_of_South_Korea.svg.png') no-repeat center/contain;
-            position: absolute; bottom: 30px; right: 30px; opacity: 0.15; pointer-events: none;
+
+        .cert-title { 
+            font-size: 1.8rem; 
+            font-weight: 900; 
+            margin-bottom: 25px; 
+            color: #1e293b; 
+            border-bottom: 3px solid #1e293b; 
+            display: inline-block; 
+            padding-bottom: 10px;
         }
-        .cert-title { font-size: 1.8rem; font-weight: 900; margin-bottom: 25px; color: #1e293b; border-bottom: 3px solid #1e293b; display: inline-block; padding-bottom: 10px;}
-        .cert-content { font-size: 1.1rem; line-height: 1.8; color: #475569; text-align: left; padding: 0 20px; word-break: keep-all; }
 
-        /* 입력 패널 */
-        .input-section { background: #eff6ff; padding: 30px; border-radius: 16px; margin-bottom: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; border: 1px solid #bfdbfe; }
-        .input-group label { font-weight: 800; display: block; margin-bottom: 12px; color: #1e40af; font-size: 1.1rem; }
-        .input-row { display: flex; gap: 15px; align-items: center; }
-        .input-row input[type=range] { flex-grow: 1; cursor: pointer; height: 8px; accent-color: var(--primary); }
-        .input-row input[type=number] { width: 120px; padding: 12px; border: 2px solid #93c5fd; border-radius: 8px; text-align: right; font-weight: 800; font-size: 1.2rem; color: #1e3a8a; }
+        .cert-content { 
+            font-size: 1.1rem; 
+            line-height: 1.8; 
+            color: #475569; 
+            text-align: left; 
+            padding: 0 20px; 
+            word-break: keep-all; 
+        }
 
-        /* 결과 레이아웃 */
-        .result-layout { display: none; grid-template-columns: 350px 1fr; gap: 30px; margin-top: 40px; animation: fadeIn 0.6s ease-out; }
+        .input-section { 
+            background: #eff6ff; 
+            padding: 30px; 
+            border-radius: 16px; 
+            margin-bottom: 30px; 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 40px; 
+            border: 1px solid #bfdbfe; 
+        }
+
+        .input-group label { 
+            font-weight: 800; 
+            display: block; 
+            margin-bottom: 12px; 
+            color: #1e40af; 
+            font-size: 1.1rem; 
+        }
+
+        .input-row { 
+            display: flex; 
+            gap: 15px; 
+            align-items: center; 
+        }
+
+        .input-row input[type=range] { 
+            flex-grow: 1; 
+            cursor: pointer; 
+            height: 8px; 
+            accent-color: var(--primary); 
+        }
+
+        .input-row input[type=number] { 
+            width: 120px; 
+            padding: 12px; 
+            border: 2px solid #93c5fd; 
+            border-radius: 8px; 
+            text-align: right; 
+            font-weight: 800; 
+            font-size: 1.2rem; 
+            color: #1e3a8a; 
+        }
+
+        .result-layout { 
+            display: none; 
+            grid-template-columns: 350px 1fr; 
+            gap: 30px; 
+            margin-top: 40px; 
+            animation: fadeIn 0.6s ease-out; 
+        }
         
-        /* 공통 카드 스타일 */
-        .info-card { border: 1px solid var(--border); border-radius: 16px; padding: 25px; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .card-title { font-weight: 800; color: #64748b; margin-bottom: 20px; display: block; font-size: 1rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
-        
-        .stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 1rem; color: #475569; }
-        .stat-val { font-weight: 800; color: #0f172a; font-size: 1.1rem; }
-        .highlight-red { color: #ef4444; font-size: 1.4rem; }
+        .info-card { 
+            border: 1px solid var(--border); 
+            border-radius: 16px; 
+            padding: 25px; 
+            background: white; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+        }
 
-        /* 할인 테이블 */
-        .discount-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: center; }
-        .discount-table th { background: #f8fafc; padding: 10px; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700; }
-        .discount-table td { padding: 10px; border: 1px solid #e2e8f0; color: #334155; }
-        .active-tier { background: #eff6ff; font-weight: 800; color: var(--primary); border: 2px solid var(--primary) !important; position: relative; z-index: 1; box-shadow: 0 0 10px rgba(37,99,235,0.1); }
+        .card-title { 
+            font-weight: 800; 
+            color: #64748b; 
+            margin-bottom: 20px; 
+            display: block; 
+            font-size: 1rem; 
+            border-bottom: 2px solid #f1f5f9; 
+            padding-bottom: 10px; 
+        }
 
-        /* 탭 & 버튼 */
-        .mode-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .tab-btn { padding: 12px 24px; border: 1px solid #cbd5e1; background: white; border-radius: 50px; cursor: pointer; font-weight: 700; color: #64748b; transition: 0.2s; }
-        .tab-btn.active { background: #1e293b; color: white; border-color: #1e293b; box-shadow: 0 4px 10px rgba(30, 41, 59, 0.3); }
+        .stat-row { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 15px; 
+            font-size: 1rem; 
+            color: #475569; 
+        }
 
-        .target-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; background: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; }
-        .target-btn { padding: 15px; border: 1px solid #cbd5e1; background: white; border-radius: 12px; cursor: pointer; transition: 0.2s; font-weight: 700; color: #64748b; }
-        .target-btn:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); }
-        .target-btn.selected { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 4px 10px rgba(37,99,235,0.3); }
+        .stat-val { 
+            font-weight: 800; 
+            color: #0f172a; 
+            font-size: 1.1rem; 
+        }
 
-        /* 결과 박스 (강조) */
-        .result-box { border: 2px solid #bfdbfe; background: #eff6ff; border-radius: 16px; padding: 30px; position: relative; }
-        .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; row-gap: 20px; margin-bottom: 25px; }
-        
-        .res-item { display: flex; flex-direction: column; }
-        .res-label { font-size: 0.9rem; color: #1e40af; font-weight: 700; margin-bottom: 5px; }
-        .res-value { font-size: 1.6rem; font-weight: 900; color: #1e3a8a; letter-spacing: -0.5px; }
-        .res-sub { font-size: 0.85rem; color: #60a5fa; margin-top: 5px; }
+        .highlight-red { 
+            color: #ef4444; 
+            font-size: 1.4rem; 
+        }
 
-        /* 절감액 하이라이트 박스 */
+        .discount-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 0.9rem; 
+            text-align: center; 
+        }
+
+        .discount-table th { 
+            background: #f8fafc; 
+            padding: 10px; 
+            border: 1px solid #e2e8f0; 
+            color: #64748b; 
+            font-weight: 700; 
+        }
+
+        .discount-table td { 
+            padding: 10px; 
+            border: 1px solid #e2e8f0; 
+            color: #334155; 
+        }
+
+        .active-tier { 
+            background: #eff6ff; 
+            font-weight: 800; 
+            color: var(--primary); 
+            border: 2px solid var(--primary) !important; 
+            position: relative; 
+            z-index: 1; 
+            box-shadow: 0 0 10px rgba(37,99,235,0.1); 
+        }
+
+        .mode-tabs { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 20px; 
+        }
+
+        .tab-btn { 
+            padding: 12px 24px; 
+            border: 1px solid #cbd5e1; 
+            background: white; 
+            border-radius: 50px; 
+            cursor: pointer; 
+            font-weight: 700; 
+            color: #64748b; 
+            transition: 0.2s; 
+        }
+
+        .tab-btn.active { 
+            background: #1e293b; 
+            color: white; 
+            border-color: #1e293b; 
+            box-shadow: 0 4px 10px rgba(30, 41, 59, 0.3); 
+        }
+
+        .target-grid { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 10px; 
+            margin-bottom: 20px; 
+            background: #f8fafc; 
+            padding: 20px; 
+            border-radius: 16px; 
+            border: 1px solid #e2e8f0; 
+        }
+
+        .target-btn { 
+            padding: 15px; 
+            border: 1px solid #cbd5e1; 
+            background: white; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            font-weight: 700; 
+            color: #64748b; 
+        }
+
+        .target-btn:hover { 
+            border-color: var(--primary); 
+            color: var(--primary); 
+            transform: translateY(-2px); 
+        }
+
+        .target-btn.selected { 
+            background: var(--primary); 
+            color: white; 
+            border-color: var(--primary); 
+            box-shadow: 0 4px 10px rgba(37,99,235,0.3); 
+        }
+
+        .result-box { 
+            border: 2px solid #bfdbfe; 
+            background: #eff6ff; 
+            border-radius: 16px; 
+            padding: 30px; 
+            position: relative; 
+        }
+
+        .result-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 30px; 
+            row-gap: 20px; 
+            margin-bottom: 25px; 
+        }
+
+        .res-item { 
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        .res-label { 
+            font-size: 0.9rem; 
+            color: #1e40af; 
+            font-weight: 700; 
+            margin-bottom: 5px; 
+        }
+
+        .res-value { 
+            font-size: 1.6rem; 
+            font-weight: 900; 
+            color: #1e3a8a; 
+            letter-spacing: -0.5px; 
+        }
+
+        .res-sub { 
+            font-size: 0.85rem; 
+            color: #60a5fa; 
+            margin-top: 5px; 
+        }
+
         .savings-highlight { 
-            background: #1e293b; color: white; border-radius: 12px; padding: 20px; 
-            display: flex; justify-content: space-between; align-items: center;
-            box-shadow: 0 10px 20px rgba(30, 41, 59, 0.2); margin-top: 10px;
+            background: #1e293b; 
+            color: white; 
+            border-radius: 12px; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            box-shadow: 0 10px 20px rgba(30, 41, 59, 0.2); 
+            margin-top: 10px;
         }
-        .savings-title { font-size: 1.1rem; font-weight: 700; color: #94a3b8; }
-        .savings-amount { font-size: 1.8rem; font-weight: 900; color: #4ade80; }
-        .savings-rate-badge { background: #4ade80; color: #064e3b; padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; font-weight: 800; margin-left: 10px; vertical-align: middle; }
 
-        .chart-area { height: 300px; margin-top: 30px; background: white; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; }
-        
-        .btn-main { width: 100%; padding: 20px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; border: none; border-radius: 12px; font-size: 1.3rem; font-weight: 800; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 10px 20px rgba(37,99,235,0.25); }
-        .btn-main:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(37,99,235,0.35); }
+        .savings-title { 
+            font-size: 1.1rem; 
+            font-weight: 700; 
+            color: #94a3b8; 
+        }
 
-        /* 팝업 (Modal) 스타일 */
+        .savings-amount { 
+            font-size: 1.8rem; 
+            font-weight: 900; 
+            color: #4ade80; 
+        }
+
+        .savings-rate-badge { 
+            background: #4ade80; 
+            color: #064e3b; 
+            padding: 4px 10px; 
+            border-radius: 4px; 
+            font-size: 0.9rem; 
+            font-weight: 800; 
+            margin-left: 10px; 
+            vertical-align: middle; 
+        }
+
+        .chart-area { 
+            height: 350px; /* 차트 높이 유지 */
+            margin-top: 30px; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 16px; 
+            border: 1px solid #e2e8f0; 
+        }
+
+        .btn-main { 
+            width: 100%; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); 
+            color: white; 
+            border: none; 
+            border-radius: 12px; 
+            font-size: 1.3rem; 
+            font-weight: 800; 
+            cursor: pointer; 
+            transition: transform 0.2s, box-shadow 0.2s; 
+            box-shadow: 0 10px 20px rgba(37,99,235,0.25); 
+        }
+
+        .btn-main:hover { 
+            transform: translateY(-3px); 
+            box-shadow: 0 15px 30px rgba(37,99,235,0.35); 
+        }
+
         .modal-overlay { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); 
-            z-index: 9999; display: none; justify-content: center; align-items: center; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0, 0, 0, 0.75); 
+            backdrop-filter: blur(8px); 
+            z-index: 9999; 
+            display: none; 
+            justify-content: center; 
+            align-items: center; 
         }
-        .modal-content { 
-            background: white; width: 95%; max-width: 1100px; border-radius: 24px; padding: 50px; 
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); 
-            text-align: center; position: relative; max-height: 90vh; overflow-y: auto;
-        }
-        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        
-        .modal-header h2 { font-size: 2.2rem; margin: 0 0 15px; color: #1e293b; font-weight: 900; }
-        .solution-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; margin: 40px 0; }
-        .sol-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px; padding: 30px; text-align: center; transition: 0.3s; }
-        .sol-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: 0 15px 30px rgba(0,0,0,0.08); }
-        .sol-icon { font-size: 3.5rem; margin-bottom: 20px; display: block; }
-        .sol-title { font-weight: 800; font-size: 1.3rem; margin-bottom: 20px; display: block; color: #1e293b; }
-        .sol-list { list-style: none; padding: 0; margin: 0; text-align: left; font-size: 0.95rem; color: #475569; line-height: 1.6; }
-        .sol-list li { margin-bottom: 10px; padding-left: 24px; position: relative; }
-        .sol-list li::before { content: "✔"; color: #10b981; position: absolute; left: 0; font-weight: 900; }
-        
-        .modal-btn { width: 100%; padding: 22px; background: #2563eb; color: white; border: none; border-radius: 16px; font-size: 1.4rem; font-weight: 800; cursor: pointer; transition: 0.2s; }
-        .modal-btn:hover { background: #1e40af; transform: scale(1.01); }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-content { 
+            background: white; 
+            width: 95%; 
+            max-width: 1100px; 
+            border-radius: 24px; 
+            padding: 50px; 
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25); 
+            animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); 
+            text-align: center; 
+            position: relative; 
+            max-height: 90vh; 
+            overflow-y: auto;
+        }
+
+        @keyframes slideUp { 
+            from { transform: translateY(50px); opacity: 0; } 
+            to { transform: translateY(0); opacity: 1; } 
+        }
+        
+        .modal-header h2 { 
+            font-size: 2.2rem; 
+            margin: 0 0 15px; 
+            color: #1e293b; 
+            font-weight: 900; 
+        }
+
+        .solution-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 25px; 
+            margin: 40px 0; 
+        }
+
+        .sol-card { 
+            background: #f8fafc; 
+            border: 1px solid #e2e8f0; 
+            border-radius: 20px; 
+            padding: 30px; 
+            text-align: center; 
+            transition: 0.3s; 
+        }
+
+        .sol-card:hover { 
+            transform: translateY(-5px); 
+            border-color: var(--primary); 
+            box-shadow: 0 15px 30px rgba(0,0,0,0.08); 
+        }
+
+        .sol-icon { 
+            font-size: 3.5rem; 
+            margin-bottom: 20px; 
+            display: block; 
+        }
+
+        .sol-title { 
+            font-weight: 800; 
+            font-size: 1.3rem; 
+            margin-bottom: 20px; 
+            display: block; 
+            color: #1e293b; 
+        }
+
+        .sol-list { 
+            list-style: none; 
+            padding: 0; 
+            margin: 0; 
+            text-align: left; 
+            font-size: 0.95rem; 
+            color: #475569; 
+            line-height: 1.6; 
+        }
+
+        .sol-list li { 
+            margin-bottom: 10px; 
+            padding-left: 24px; 
+            position: relative; 
+        }
+
+        .sol-list li::before { 
+            content: "✔"; 
+            color: #10b981; 
+            position: absolute; 
+            left: 0; 
+            font-weight: 900; 
+        }
+        
+        .modal-btn { 
+            width: 100%; 
+            padding: 22px; 
+            background: #2563eb; 
+            color: white; 
+            border: none; 
+            border-radius: 16px; 
+            font-size: 1.4rem; 
+            font-weight: 800; 
+            cursor: pointer; 
+            transition: 0.2s; 
+        }
+
+        .modal-btn:hover { 
+            background: #1e40af; 
+            transform: scale(1.01); 
+        }
+
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(20px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 20px; width: auto; margin: 10px; }
+            header h1 { font-size: 1.5rem; }
+            .input-section { grid-template-columns: 1fr; gap: 20px; padding: 20px; }
+            .result-layout { grid-template-columns: 1fr; margin-top: 30px; }
+            .result-grid { grid-template-columns: 1fr 1fr; gap: 15px; } 
+            .res-value { font-size: 1.3rem; }
+            .target-grid { grid-template-columns: repeat(2, 1fr); }
+            .solution-grid { grid-template-columns: 1fr; }
+            .modal-content { padding: 25px; width: 85%; }
+            .savings-amount { font-size: 1.4rem; }
+            .info-card, .result-box, .chart-area { padding: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -221,6 +659,9 @@
                 <div class="stat-row">
                     <span>5년 누적 부담금</span>
                     <span class="stat-val highlight-red" id="val-5yLevy">0원</span>
+                </div>
+                <div id="exempt-msg" style="display:none; color:#2563eb; font-size:0.85rem; margin-top:15px; text-align:center; font-weight:bold; background:#eff6ff; padding:10px; border-radius:8px;">
+                    ※ 100인 미만 사업장은 부담금 납부 의무가 없습니다.<br>(고용 장려금 수령 가능 대상)
                 </div>
             </div>
 
@@ -347,6 +788,7 @@
 </div>
 
 <script>
+    // 전역 상태 변수
     let state = { total: 1000, dis: 0, mode: 'purchase', targetRate: 1.0 };
     let myChart = null;
 
@@ -396,7 +838,10 @@
         if(document.getElementById('resultArea').style.display === 'grid') calculate();
     }
 
-    function openPopup() { document.getElementById('solutionPopup').style.display = 'flex'; }
+    function openPopup() { 
+        document.getElementById('solutionPopup').style.display = 'flex'; 
+    }
+    
     function closePopupAndShowResult() {
         document.getElementById('solutionPopup').style.display = 'none';
         document.getElementById('resultArea').style.display = 'grid';
@@ -420,97 +865,119 @@
     }
 
     function calculate() {
-        // 1. 기본 현황 (Current Status)
-        const mandatory = Math.ceil(state.total * 0.031); 
+        // 1. 현재 부담금 계산
+        const mandatory = Math.floor(state.total * 0.031); 
         const currentRecognized = state.dis; 
         const unfilled = Math.max(0, mandatory - currentRecognized); 
         const ratio = mandatory > 0 ? currentRecognized / mandatory : 0;
 
         let unitCost = 0;
-        for(let i=0; i<BURDEN_TIERS.length; i++) {
-            if(ratio < BURDEN_TIERS[i].limit || i === BURDEN_TIERS.length-1) {
-                unitCost = (currentRecognized === 0 && mandatory > 0) ? BURDEN_TIERS[0].cost : BURDEN_TIERS[i].cost;
-                break;
+        let isExempt = false;
+
+        if (state.total < 100) {
+            unitCost = 0;
+            isExempt = true;
+            if(document.getElementById('exempt-msg')) document.getElementById('exempt-msg').style.display = 'block';
+            document.getElementById('val-unfilled').style.color = '#2563eb';
+        } else {
+            if(document.getElementById('exempt-msg')) document.getElementById('exempt-msg').style.display = 'none';
+            document.getElementById('val-unfilled').style.color = '#ef4444';
+            
+            for(let i=0; i<BURDEN_TIERS.length; i++) {
+                if(ratio < BURDEN_TIERS[i].limit || i === BURDEN_TIERS.length-1) {
+                    unitCost = (currentRecognized === 0 && mandatory > 0) ? BURDEN_TIERS[0].cost : BURDEN_TIERS[i].cost;
+                    break;
+                }
             }
         }
-        if(unfilled === 0) unitCost = 0;
 
         const currentMonthlyLevy = unfilled * unitCost;
         const current5y = currentMonthlyLevy * 60;
 
-        // UI Update (Left Panel)
+        // UI 업데이트
         document.getElementById('val-mandatory').innerText = mandatory;
         document.getElementById('val-current').innerText = currentRecognized;
         document.getElementById('val-unfilled').innerText = unfilled;
         document.getElementById('val-unit').innerText = (unitCost/10000).toLocaleString();
         document.getElementById('val-5yLevy').innerText = formatMoney(current5y);
 
-        // 2. 솔루션 로직 (Solution Logic)
+        // 2. 필요 채용 인원 계산
         const targetRecognizedTotal = Math.ceil(mandatory * state.targetRate);
         let gapRecognized = Math.max(0, targetRecognizedTotal - currentRecognized);
-        
-        // ★★★ 핵심 로직: 중증 2배수 적용하여 실제 채용인원 산출 ★★★
-        const hires = Math.ceil(gapRecognized / 2);
+        const hires = Math.ceil(gapRecognized / 2); // 중증 2배수
         const gainedRecognized = hires * 2;
         
-        document.getElementById('sol-logic-text').innerText = 
-            `부족 ${gapRecognized}명 ÷ 2 (중증더블) = ${hires}명 채용`;
+        document.getElementById('sol-logic-text').innerText = `부족 ${gapRecognized}명 ÷ 2 (중증더블) = ${hires}명 채용`;
 
-        // 비용 및 할인 계산 (Cost & Discount)
-        let solMonthly = 0;
-        let upfront = 0;
-        let activeRowId = "row-t1";
+        // 3. [비용 계산] 차트를 위해 3가지 모드 모두 계산 (렌탈 > 하이브리드 > 구매 순서 검증됨)
+        
+        // A. 렌탈 (10% 할인)
+        const costRentalMonthly = (BASE_CONFIG.labor + (BASE_CONFIG.rentalMonthly * 0.9)) * hires;
+        const costRental5y = costRentalMonthly * 60;
 
+        // B. 하이브리드 (13% 할인)
+        const costHybridUpfront = (BASE_CONFIG.hybridDeposit * 0.87) * hires;
+        const costHybridMonthly = (BASE_CONFIG.labor + (BASE_CONFIG.hybridRent * 0.87) + BASE_CONFIG.purchaseOp) * hires;
+        const costHybrid5y = (costHybridMonthly * 60) + costHybridUpfront;
+
+        // C. 구매 (수량별 할인)
         let discount = 0;
-        if(state.mode === 'purchase') {
-            // ★★★ 수정된 할인 구간 로직 (13명이면 11~20구간 15% 적용됨) ★★★
-            if(hires >= 31) { discount = 0.25; activeRowId = "row-t4"; }
-            else if(hires >= 21) { discount = 0.20; activeRowId = "row-t3"; }
-            else if(hires >= 11) { discount = 0.15; activeRowId = "row-t2"; }
-            else { discount = 0; activeRowId = "row-t1"; }
-            
-            const devicePrice = BASE_CONFIG.purchaseListPrice * (1 - discount);
-            upfront = devicePrice * hires;
-            // 월 비용 = 인건비 + 운영비 + (기기값 월할 상각: 비교용)
-            solMonthly = (BASE_CONFIG.labor + BASE_CONFIG.purchaseOp) * hires + (upfront / 60); 
-        } else if(state.mode === 'rental') {
-            solMonthly = (BASE_CONFIG.labor + BASE_CONFIG.rentalMonthly) * hires;
-        } else {
-            upfront = BASE_CONFIG.hybridDeposit * hires;
-            solMonthly = (BASE_CONFIG.labor + BASE_CONFIG.hybridRent + BASE_CONFIG.purchaseOp) * hires;
-        }
+        let activeRowId = "row-t1";
+        if(hires >= 31) { discount = 0.25; activeRowId = "row-t4"; }
+        else if(hires >= 21) { discount = 0.20; activeRowId = "row-t3"; }
+        else if(hires >= 11) { discount = 0.15; activeRowId = "row-t2"; }
+        else { discount = 0; activeRowId = "row-t1"; }
+        
+        const costPurchaseDevice = (BASE_CONFIG.purchaseListPrice * (1 - discount)) * hires;
+        const costPurchaseMonthly = (BASE_CONFIG.labor + BASE_CONFIG.purchaseOp) * hires;
+        const costPurchase5y = (costPurchaseMonthly * 60) + costPurchaseDevice;
 
-        // 잔여 부담금 (Remaining Levy)
+        // 4. 잔여 부담금
         const remainUnfilled = Math.max(0, unfilled - gainedRecognized);
-        const newTotalRecognized = currentRecognized + gainedRecognized;
-        const newRatio = mandatory > 0 ? newTotalRecognized / mandatory : 0;
-        let newUnitCost = 0;
-        
-        // 이행률 상승에 따른 단가 하락 반영
-        for(let i=0; i<BURDEN_TIERS.length; i++) {
-            if(newRatio < BURDEN_TIERS[i].limit || i === BURDEN_TIERS.length-1) {
-                newUnitCost = (newTotalRecognized === 0 && mandatory > 0) ? BURDEN_TIERS[0].cost : BURDEN_TIERS[i].cost;
-                break;
+        let remainCost = 0;
+        if(!isExempt && remainUnfilled > 0) {
+            const newTotalRec = currentRecognized + gainedRecognized;
+            const newRatio = mandatory > 0 ? newTotalRec/mandatory : 0;
+            let newUnit = 0;
+            for(let i=0; i<BURDEN_TIERS.length; i++) {
+                if(newRatio < BURDEN_TIERS[i].limit || i === BURDEN_TIERS.length-1) {
+                    newUnit = (newTotalRec === 0 && mandatory > 0) ? BURDEN_TIERS[0].cost : BURDEN_TIERS[i].cost;
+                    break;
+                }
             }
+            remainCost = remainUnfilled * newUnit;
         }
-        if(remainUnfilled <= 0) newUnitCost = 0;
-        
-        const remainLevyMonthly = remainUnfilled * newUnitCost;
-        const totalMonthlyOut = solMonthly + remainLevyMonthly;
-        const total5yOut = (totalMonthlyOut * 60) + (state.mode === 'hybrid' ? upfront : 0); 
 
-        // UI Update (Right Panel)
+        // 5. 선택된 모드에 따른 최종 결과 표시
+        let finalSolMonthly = 0;
+        let finalTotal5y = 0;
+
+        if(state.mode === 'purchase') {
+            finalSolMonthly = costPurchaseMonthly + (costPurchaseDevice / 60); 
+            finalTotal5y = costPurchase5y;
+            document.querySelectorAll('.discount-table tr').forEach(tr => tr.classList.remove('active-tier'));
+            document.getElementById(activeRowId).classList.add('active-tier');
+        } else if(state.mode === 'rental') {
+            finalSolMonthly = costRentalMonthly;
+            finalTotal5y = costRental5y;
+            document.querySelectorAll('.discount-table tr').forEach(tr => tr.classList.remove('active-tier'));
+        } else { // hybrid
+            finalSolMonthly = costHybridMonthly; // 월 지출액 (보증금 제외)
+            finalTotal5y = costHybrid5y;
+            document.querySelectorAll('.discount-table tr').forEach(tr => tr.classList.remove('active-tier'));
+        }
+
+        const totalMonthlyOut = finalSolMonthly + remainCost;
+        const total5yWithRemain = finalTotal5y + (remainCost * 60);
+
+        // 결과값 UI 업데이트
         document.getElementById('sol-hires').innerText = hires + " 명";
-        document.getElementById('sol-monthly').innerText = parseInt(solMonthly).toLocaleString() + " 원";
-        document.getElementById('sol-remain').innerText = parseInt(remainLevyMonthly).toLocaleString() + " 원";
-        document.getElementById('sol-total5y').innerText = formatMoney(total5yOut);
+        document.getElementById('sol-monthly').innerText = parseInt(totalMonthlyOut).toLocaleString() + " 원";
+        document.getElementById('sol-remain').innerText = parseInt(remainCost).toLocaleString() + " 원";
+        document.getElementById('sol-total5y').innerText = formatMoney(total5yWithRemain);
 
-        // 할인표 하이라이트
-        document.querySelectorAll('.discount-table tr').forEach(tr => tr.classList.remove('active-tier'));
-        if(state.mode === 'purchase') document.getElementById(activeRowId).classList.add('active-tier');
-
-        // ★★★ 절감액 표기 (요청사항 반영) ★★★
-        const savingAmount = current5y - total5yOut;
+        // 절감액 계산
+        const savingAmount = current5y - total5yWithRemain;
         const savingPct = current5y > 0 ? ((savingAmount / current5y) * 100).toFixed(1) : 0;
         
         const saveEl = document.getElementById('final-savings');
@@ -528,9 +995,26 @@
             rateEl.style.background = "#ef4444"; rateEl.style.color = "white";
         }
 
-        // 차트 업데이트
+        // [핵심] 차트 업데이트 (색상 강조 로직 추가됨)
+        const remain5y = remainCost * 60;
+        
         if(myChart) {
-            myChart.data.datasets[0].data = [current5y, total5yOut];
+            // 기본 색상: 현재(Red), 나머지(Gray)
+            let colors = ['#ef4444', '#cbd5e1', '#cbd5e1', '#cbd5e1'];
+            
+            // 선택된 모드만 Blue(#2563eb)로 변경
+            // Index: 0:현재, 1:렌탈, 2:하이브리드, 3:구매
+            if(state.mode === 'rental') colors[1] = '#2563eb';
+            else if(state.mode === 'hybrid') colors[2] = '#2563eb';
+            else colors[3] = '#2563eb'; // purchase
+
+            myChart.data.datasets[0].backgroundColor = colors;
+            myChart.data.datasets[0].data = [
+                current5y, 
+                costRental5y + remain5y, 
+                costHybrid5y + remain5y, 
+                costPurchase5y + remain5y
+            ];
             myChart.update();
         }
     }
@@ -540,26 +1024,38 @@
         return Math.round(n).toLocaleString() + "원";
     }
 
+    // 차트 초기화 (4개 막대 비교)
     function initChart() {
         const ctx = document.getElementById('costChart').getContext('2d');
         myChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['현재 부담금 (5년)', '솔루션 적용 후 (5년)'],
+                labels: ['현재 부담금', '렌탈형(5년)', '하이브리드(5년)', '구매형(Best)'],
                 datasets: [{
-                    label: '비용 (원)',
-                    data: [0, 0],
-                    backgroundColor: ['#ef4444', '#2563eb'],
+                    label: '5년 총 비용',
+                    data: [0, 0, 0, 0],
+                    // 초기값: 구매형(index 3)이 기본 선택이므로 파란색
+                    backgroundColor: ['#ef4444', '#cbd5e1', '#cbd5e1', '#2563eb'],
                     borderRadius: 8,
-                    barThickness: 50
+                    barThickness: 40
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: { 
+                    legend: { display: false }, 
+                    tooltip: { 
+                        callbacks: { 
+                            label: c => ' 비용: ' + (c.raw/100000000).toFixed(1) + '억원' 
+                        } 
+                    } 
+                },
                 scales: {
-                    y: { beginAtZero: true, ticks: { callback: v => (v/100000000).toFixed(0) + '억' } },
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { callback: v => (v/100000000).toFixed(0) + '억' } 
+                    },
                     x: { grid: { display: false } }
                 }
             }
