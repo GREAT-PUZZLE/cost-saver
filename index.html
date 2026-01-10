@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Great Puzzle - ESG Cost Save Simulator (2026 Enterprise Edition)</title>
+    <title>Great Puzzle - ESG Cost Simulator (2026 Enterprise Edition)</title>
     <!-- Open Graph (카톡 / 슬랙 / 페북) -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Great Puzzle">
     <meta property="og:title" content="GreatPuzzle : ESG 기반 비용 절감 시뮬레이터">
-    <meta property="og:description" content="중증 장애인 고용 기반 ESG 솔루션 | 고용부담금 최대 56.1% 절감">
+    <meta property="og:description" content="중증 장애인 고용 기반 ESG 솔루션 | 고용부담금 최대 56% 절감">
     <meta property="og:url" content="https://great-puzzle.github.io/cost-saver/">
     <meta property="og:image" content="https://great-puzzle.github.io/cost-saver/og-image.png">
     <meta property="og:image:width" content="1200">
@@ -16,7 +16,8 @@
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
-    
+
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script type="text/javascript">
@@ -271,6 +272,7 @@
             font-size: 1.2rem; 
         }
 
+        /* 기존 유지 */
         .input-row { 
             display: flex; 
             gap: 20px; 
@@ -299,6 +301,77 @@
         .input-row input[type=number]:focus { 
             border-color: var(--primary); 
             box-shadow: 0 0 0 3px rgba(37,99,235,0.2); 
+        }
+
+        /* =========================
+        ✅ 모바일 전용 보정 (PC UI 100% 유지)
+        ========================= */
+        @media (max-width: 768px) {
+
+            /* ✅ 모바일 슬라이더 깨짐 방지 (iOS 필수) */
+            input[type=range] {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 100%;
+                height: 6px;
+                border-radius: 4px;
+                background: #e5e7eb;
+                outline: none;
+            }
+
+            /* ✅ 슬라이더 손잡이 (안 보이는 문제 해결) */
+            input[type=range]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 22px;
+                height: 22px;
+                border-radius: 999px;
+                background: var(--primary);
+                border: 3px solid #ffffff;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+                cursor: pointer;
+            }
+
+            /* ✅ 슬라이더 + 숫자 input 세로 배치 */
+            .input-row.range-row {
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+            }
+
+            .input-row.range-row input[type=number] {
+                width: 100%;
+            }
+        }
+
+
+
+
+
+        /* ✅ 모바일에서만 적용 (PC UI 100% 유지) */
+        @media (max-width: 768px) {
+
+            /* ✅ [추가 1] 모바일 슬라이더 깨짐 방지 (iOS 필수) */
+            input[type=range] {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 100%;
+                height: 6px;
+                border-radius: 4px;
+                background: #e5e7eb;
+                outline: none;
+            }
+
+            /* ✅ [추가 2] 슬라이더 + 숫자 input 세로 배치 */
+            .input-row.range-row {
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+            }
+
+            .input-row.range-row input[type=number] {
+                width: 100%;
+            }
         }
 
         /* 메인 버튼 */
@@ -786,10 +859,10 @@
         <p>중증 장애인 고용 기반 ESG 솔루션<br><b>고용부담금 최대 56.1% 절감</b>, 탄소 절감과 자원순환 성과까지 한 번에.</p>
         
         <div class="badge-container">
-            <div class="cert-badge" onclick="showCert('innoprod', this)"><div class="badge-icon"></div>조달청 혁신제품 지정</div>
-            <div class="cert-badge" onclick="showCert('pilot', this)"><div class="badge-icon"></div>중기부 시범구매 선정</div>
-            <div class="cert-badge" onclick="showCert('venture', this)"><div class="badge-icon"></div>벤처기업 인증</div>
-            <div class="cert-badge" onclick="showCert('social', this)"><div class="badge-icon"></div>소셜벤처 판별</div>
+            <div class="cert-badge" onclick="showCert('innoprod', this)"><div class="badge-icon"></div>조달청 혁신제품</div>
+            <div class="cert-badge" onclick="showCert('pilot', this)"><div class="badge-icon"></div>중기부 시범구매제품</div>
+            <div class="cert-badge" onclick="showCert('venture', this)"><div class="badge-icon"></div>벤처기업</div>
+            <div class="cert-badge" onclick="showCert('social', this)"><div class="badge-icon"></div>소셜벤처</div>
         </div>
     </header>
 
@@ -811,14 +884,14 @@
 
         <div class="input-group">
             <label>👥 전체 상시 근로자 수</label>
-            <div class="input-row">
+            <div class="input-row range-row">
                 <input type="range" id="range-total" min="50" max="100000" step="50" value="1000" oninput="syncVal('total', this.value)">
                 <input type="number" id="input-total" value="1000" oninput="syncVal('total', this.value)">
             </div>
         </div>
         <div class="input-group">
             <label>♿ 현재 장애인 근로자 수 (인정 인원)</label>
-            <div class="input-row">
+            <div class="input-row range-row">
                 <input type="range" id="range-dis" min="0" max="2000" step="1" value="0" oninput="syncVal('dis', this.value)">
                 <input type="number" id="input-dis" value="0" oninput="syncVal('dis', this.value)">
             </div>
@@ -909,15 +982,15 @@
 
                         <div class="cost-breakdown" style="margin-top:10px;">
                             <div class="cb-row" style="color:#1e3a8a;">
-                                <span>+ 인건비(3.5H 근무,4대보험):</span>
+                                <span>+ 인건비(3.5H 근무,4대보험)</span>
                                 <span style="font-weight:700;">105.0만원</span>
                             </div>
                             <div class="cb-row" style="color:#64748b;">
-                                <span>+ 솔루션비(기기/운영(위탁 관리 등)):</span>
+                                <span>+ 솔루션비(기기/운영(위탁 관리 등))</span>
                                 <span style="font-weight:700;" id="comp-sol-detail">158.8만원</span>
                             </div>
                             <div class="cb-row" style="color:#2563eb; border-top:1px dashed #cbd5e1; padding-top:4px; margin-top:4px;">
-                                <span>- 세금절감(20.9%):</span>
+                                <span>- 세금절감(20.9%)</span>
                                 <span style="font-weight:700;" id="comp-tax-detail">-55.1만원</span>
                             </div>
                         </div>
@@ -1444,6 +1517,3 @@
 
 </body>
 </html>
-
-
-
