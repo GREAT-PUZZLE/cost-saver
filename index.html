@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta id="vp" name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Great Puzzle - ESG Cost Simulator (2026 Enterprise Edition)</title>
     <!-- Open Graph (카톡 / 슬랙 / 페북) -->
     <meta property="og:type" content="website">
@@ -16,7 +16,6 @@
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
-
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
@@ -272,7 +271,6 @@
             font-size: 1.2rem; 
         }
 
-        /* 기존 유지 */
         .input-row { 
             display: flex; 
             gap: 20px; 
@@ -301,77 +299,6 @@
         .input-row input[type=number]:focus { 
             border-color: var(--primary); 
             box-shadow: 0 0 0 3px rgba(37,99,235,0.2); 
-        }
-
-        /* =========================
-        ✅ 모바일 전용 보정 (PC UI 100% 유지)
-        ========================= */
-        @media (max-width: 768px) {
-
-            /* ✅ 모바일 슬라이더 깨짐 방지 (iOS 필수) */
-            input[type=range] {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 100%;
-                height: 6px;
-                border-radius: 4px;
-                background: #e5e7eb;
-                outline: none;
-            }
-
-            /* ✅ 슬라이더 손잡이 (안 보이는 문제 해결) */
-            input[type=range]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 22px;
-                height: 22px;
-                border-radius: 999px;
-                background: var(--primary);
-                border: 3px solid #ffffff;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-                cursor: pointer;
-            }
-
-            /* ✅ 슬라이더 + 숫자 input 세로 배치 */
-            .input-row.range-row {
-                flex-direction: column;
-                gap: 10px;
-                align-items: stretch;
-            }
-
-            .input-row.range-row input[type=number] {
-                width: 100%;
-            }
-        }
-
-
-
-
-
-        /* ✅ 모바일에서만 적용 (PC UI 100% 유지) */
-        @media (max-width: 768px) {
-
-            /* ✅ [추가 1] 모바일 슬라이더 깨짐 방지 (iOS 필수) */
-            input[type=range] {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 100%;
-                height: 6px;
-                border-radius: 4px;
-                background: #e5e7eb;
-                outline: none;
-            }
-
-            /* ✅ [추가 2] 슬라이더 + 숫자 input 세로 배치 */
-            .input-row.range-row {
-                flex-direction: column;
-                gap: 10px;
-                align-items: stretch;
-            }
-
-            .input-row.range-row input[type=number] {
-                width: 100%;
-            }
         }
 
         /* 메인 버튼 */
@@ -872,6 +799,7 @@
             <div class="cert-content" id="cert-content-text">내용</div>
         </div>
     </div>
+    
 
     <div class="input-section">
         <div class="sector-selector">
@@ -884,14 +812,14 @@
 
         <div class="input-group">
             <label>👥 전체 상시 근로자 수</label>
-            <div class="input-row range-row">
+            <div class="input-row">
                 <input type="range" id="range-total" min="50" max="100000" step="50" value="1000" oninput="syncVal('total', this.value)">
                 <input type="number" id="input-total" value="1000" oninput="syncVal('total', this.value)">
             </div>
         </div>
         <div class="input-group">
             <label>♿ 현재 장애인 근로자 수 (인정 인원)</label>
-            <div class="input-row range-row">
+            <div class="input-row">
                 <input type="range" id="range-dis" min="0" max="2000" step="1" value="0" oninput="syncVal('dis', this.value)">
                 <input type="number" id="input-dis" value="0" oninput="syncVal('dis', this.value)">
             </div>
@@ -1176,8 +1104,49 @@
     </div>
 </div>
 
+<button id="viewToggleBtn"
+  style="position:fixed; right:16px; bottom:16px; z-index:99999;
+         padding:12px 14px; border-radius:999px; border:1px solid #e2e8f0;
+         background:white; font-weight:800; cursor:pointer;
+         box-shadow:0 10px 20px rgba(0,0,0,0.12);">
+  🖥️ PC 화면 보기
+</button>
+
+
 <script>
+    
     // 전역 상태 변수
+        (function () {
+      const vp = document.getElementById('vp');
+      const btn = document.getElementById('viewToggleBtn');
+      if (!vp || !btn) return;
+
+      let desktopMode = false;
+
+      function apply() {
+        if (desktopMode) {
+          vp.setAttribute(
+            'content',
+            'width=1280, initial-scale=0.35, maximum-scale=1.0, user-scalable=yes'
+          );
+          btn.innerText = '📱 모바일 화면 보기';
+          document.body.style.minWidth = '1280px';
+        } else {
+          vp.setAttribute(
+            'content',
+            'width=device-width, initial-scale=1.0'
+          );
+          btn.innerText = '🖥️ PC 화면 보기';
+          document.body.style.minWidth = '';
+        }
+      }
+
+      btn.addEventListener('click', () => {
+        desktopMode = !desktopMode;
+        apply();
+      });
+    })();
+
     let state = { total: 1000, dis: 0, mode: 'purchase', targetRate: 1.0, sector: 'private' };
     let myChart = null;
     let isOverflowChecked = false; 
