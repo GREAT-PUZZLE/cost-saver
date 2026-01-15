@@ -936,22 +936,6 @@
                     </div>
                 </div>
             </div>
-<!-- 
-            <div class="info-card" style="margin-top:15px; padding:0; overflow:hidden; border:none; box-shadow:none; background:transparent;">
-                <div style="position: relative; padding-bottom: 177.78%; height: 0; overflow: hidden; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); background:#000;">
-                    <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border:0;" 
-                        src="https://www.youtube.com/embed/3lv3Srn5rZE?rel=0" 
-                        title="Great Puzzle Shorts" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen>
-                    </iframe>
-                </div>
-                <div style="text-align:center; margin-top:10px; font-weight:700; color:#64748b; font-size:0.95rem;">
-                    👆 클릭하여 솔루션 구동 영상 확인 (Shorts)
-                </div>
-            </div> -->
-
-
 
         </div>
 
@@ -1259,6 +1243,24 @@
             .catch((err) => { alert('전송 실패: ' + JSON.stringify(err)); btn.innerText = "다시 보내기"; btn.disabled = false; });
     }
 
+    // [공통] 부담금 단가 산정 함수
+    // - 기준: 의무고용 대비 "인정인원 비율(ratio)"에 따라 구간 단가가 달라짐
+    // - 예외: 인정 인원이 0명(0% 구간)인 경우는 최상위 패널티 단가(BURDEN_TIERS[0]) 적용
+    function getBurdenUnitCost(ratio, recognized, mandatory) {
+        if (!mandatory || mandatory <= 0) return 0;
+
+        // 0% (심각) 구간: 인정 인원 0명일 때는 최상위 패널티 단가로 고정
+        if (recognized === 0) return BURDEN_TIERS[0].cost;
+
+        // 25% 미만 / 50% 미만 / 75% 미만 / 75% 이상 순으로 적용
+        for (let i = 1; i < BURDEN_TIERS.length; i++) {
+            const tier = BURDEN_TIERS[i];
+            if (ratio < tier.limit) return tier.cost;
+        }
+        // ratio가 1.0 이상인 경우(사실상 발생 가능성 낮음) 마지막 단가 적용
+        return BURDEN_TIERS[BURDEN_TIERS.length - 1].cost;
+    }
+
     function calculate() {
         const mandatoryRate = state.sector === 'public' ? 0.038 : 0.031;
         const mandatory = Math.floor(state.total * mandatoryRate);
@@ -1277,13 +1279,7 @@
             else btnEl.classList.remove('disabled');
         });
 
-        let unitCost = 0;
-        for(let i=0; i<BURDEN_TIERS.length; i++) {
-            if(ratio < BURDEN_TIERS[i].limit || i === BURDEN_TIERS.length-1) {
-                unitCost = (currentRecognized === 0 && mandatory > 0) ? BURDEN_TIERS[0].cost : BURDEN_TIERS[i].cost;
-                break;
-            }
-        }
+        let unitCost = getBurdenUnitCost(ratio, currentRecognized, mandatory);
 
         const currentMonthlyLevy = unfilled * unitCost;
         const current5y = currentMonthlyLevy * 60;
@@ -1360,13 +1356,7 @@
         if(remainUnfilled > 0) {
             const newTotalRec = currentRecognized + gainedRecognized;
             const newRatio = mandatory > 0 ? newTotalRec/mandatory : 0;
-            let newUnit = 0;
-            for(let i=0; i<BURDEN_TIERS.length; i++) {
-                if(newRatio < BURDEN_TIERS[i].limit || i === BURDEN_TIERS.length-1) {
-                    newUnit = (newTotalRec === 0 && mandatory > 0) ? BURDEN_TIERS[0].cost : BURDEN_TIERS[i].cost;
-                    break;
-                }
-            }
+            let newUnit = getBurdenUnitCost(newRatio, newTotalRec, mandatory);
             remainCost = remainUnfilled * newUnit;
         }
         const remainCostMonthly = remainCost; 
@@ -1414,8 +1404,14 @@
         // ✅ 2인 기준 좌측 패널 동적 업데이트 (완벽 해결)
         // ============================
         
-        // 1. 미고용 부담금 (2인)
-        const burden2p = unitCost * 2; 
+        // 1. 미고용 부담금 (2인) — ✅ '목표 달성률(25/50/75/100%)' 구간에 따라 단가가 변하도록 반영
+        //    이유: 사용자가 선택한 목표 구간(state.targetRate)은 "달성 후 구간"을 의미하고,
+        //    해당 구간에 남아있는 미달 인원(예: 2인)에 적용되는 부담금 단가가 달라짐.
+        const compareRecognized = Math.max(currentRecognized, targetRecognizedTotal);
+        const compareRatio = mandatory > 0 ? (compareRecognized / mandatory) : 0;
+        const compareUnitCost = getBurdenUnitCost(compareRatio, compareRecognized, mandatory);
+
+        const burden2p = compareUnitCost * 2;
         document.getElementById('comp-burden-2p').innerText = (burden2p/10000).toFixed(1) + "만원";
         
         // 2. 솔루션 도입 (1대 = 2인 효과) - 선택된 모드 기준 동적 반영
@@ -1431,9 +1427,8 @@
         document.getElementById('comp-tax-detail').innerText = "-" + (currentUnit.taxSave/10000).toFixed(1) + "만원";
         
         const save2p = burden2p - currentUnit.real;
-        const saveRate2p = (save2p / burden2p) * 100;
+        const saveRate2p = burden2p > 0 ? ((save2p / burden2p) * 100) : 0;
         document.getElementById('comp-save-2p').innerText = `⚡ 월 ${(save2p/10000).toFixed(0)}만원 절감 (${saveRate2p.toFixed(0)}%)`;
-
 
         // 차트 업데이트 (Hierarchy 강제)
         if(myChart) {
@@ -1494,4 +1489,3 @@
 
 </body>
 </html>
-
